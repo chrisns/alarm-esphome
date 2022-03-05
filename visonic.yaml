@@ -1,0 +1,86 @@
+esphome:
+  name: alarm
+  platform: ESP8266
+  board: d1
+  # includes:
+  #   - stream_server.h
+  #   - stream_server.cpp
+external_components:
+  - source: github://oxan/esphome-stream-server
+  #  libraries:
+#    - ESPAsyncTCP-esphome@1.2.2
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  reboot_timeout: 1800s               # ESPHome website says that it can have problems with this
+  power_save_mode: none
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "VisonicAlarmHotspot"
+    password: !secret wifi_password
+    ap_timeout: 600s
+    manual_ip:
+      static_ip: !secret network_ip
+      gateway: !secret network_gateway
+      subnet: !secret network_mask
+
+
+  manual_ip:
+    static_ip: !secret network_ip
+    gateway: !secret network_gateway
+    subnet: !secret network_mask
+
+captive_portal:
+
+button:
+  - platform: restart
+    name: "Restart alarm"
+
+# Enable logging
+logger:
+  level: DEBUG
+  baud_rate: 0   # disables logging to the serial UART (as we are using it for other things)
+  
+# Enable Home Assistant API
+api:
+  password: !secret device_password
+  services:
+    - service: blink
+      then:
+        - switch.turn_on: blinky
+        - delay: 5s
+        - switch.turn_off: blinky
+
+ota:
+  password: !secret device_password
+
+switch:
+  - platform: gpio
+    name: "visonic_interface_on_board_led"
+    pin:
+       number: D13
+       inverted: True
+       mode: OUTPUT
+    id: blinky
+
+uart:
+  id: uart_bus
+  baud_rate: !secret panel_baud_rate
+  tx_pin: 1
+  rx_pin: 3
+  stop_bits: 1
+  data_bits: 8
+  parity: NONE
+  debug:
+    direction: BOTH
+    dummy_receiver: false
+    after:
+      delimiter: "\n"
+    sequence:
+      - lambda: UARTDebug::log_string(direction, bytes);
+
+stream_server:
+   uart_id: uart_bus
+   port: 10077
